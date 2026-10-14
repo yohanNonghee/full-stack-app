@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import fs from 'fs';
 import path from 'path';
 import mongoose from 'mongoose';
-import { Application } from '../models/Application';
+import { Application } from '../models/Application.js';
 
 const router = Router();
 

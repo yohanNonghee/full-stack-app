@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import mongoose from 'mongoose';
-import { Property } from '../models/Property';
+import { Property } from '../models/Property.js';
 
 const router = Router();
 

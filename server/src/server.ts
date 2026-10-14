@@ -2,10 +2,10 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
-import { connectDB } from './config/db';
-import authRoutes from './routes/authRoutes';
-import propertyRoutes from './routes/propertyRoutes';
-import applicationRoutes from './routes/applicationRoutes';
+import { connectDB } from './config/db.js';
+import authRoutes from './routes/authRoutes.js';
+import propertyRoutes from './routes/propertyRoutes.js';
+import applicationRoutes from './routes/applicationRoutes.js';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
