@@ -29,7 +29,7 @@ export default function Register() {
 
     try {
       // Send register payload with correctly mapped MongoDB model keys
-      const response = await fetch('http://localhost:5000/api/auth/register', {
+      const response = await fetch('https://full-stack-app-gpqb.onrender.com/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

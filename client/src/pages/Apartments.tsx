@@ -29,7 +29,7 @@ export default function Apartments() {
   const fetchApartments = async () => {
     try {
       setLoading(true);
-      const res = await fetch('http://localhost:5000/api/properties');
+      const res = await fetch('https://full-stack-app-gpqb.onrender.com/api/properties');
       if (res.ok) {
         const data: Property[] = await res.json();
     

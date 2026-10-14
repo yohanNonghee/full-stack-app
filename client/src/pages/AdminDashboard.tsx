@@ -89,8 +89,8 @@ export default function AdminDashboard() {
       setLoading(true);
       setError('');
       const [propRes, appRes] = await Promise.all([
-        fetch('http://localhost:5000/api/properties'),
-        fetch('http://localhost:5000/api/applications')
+        fetch('https://full-stack-app-gpqb.onrender.com/api/properties'),
+        fetch('https://full-stack-app-gpqb.onrender.com/api/applications')
       ]);
 
       if (propRes.ok) setProperties(await propRes.json());
@@ -156,8 +156,8 @@ export default function AdminDashboard() {
 
     try {
       const url = editingId
-        ? `http://localhost:5000/api/properties/${editingId}`
-        : 'http://localhost:5000/api/properties';
+        ? `https://full-stack-app-gpqb.onrender.com/api/properties/${editingId}`
+        : 'https://full-stack-app-gpqb.onrender.com/api/properties';
 
       const res = await fetch(url, {
         method: editingId ? 'PUT' : 'POST',
@@ -184,7 +184,7 @@ export default function AdminDashboard() {
     if (!window.confirm('Are you sure you want to delete this property?')) return;
 
     try {
-      const res = await fetch(`http://localhost:5000/api/properties/${propId}`, { method: 'DELETE' });
+      const res = await fetch(`https://full-stack-app-gpqb.onrender.com/api/properties/${propId}`, { method: 'DELETE' });
       if (res.ok) {
         setSuccessMessage('Property deleted successfully!');
         fetchData();
@@ -199,7 +199,7 @@ export default function AdminDashboard() {
 
   const handleUpdateApplicationStatus = async (appId: string, status: string) => {
     try {
-      const res = await fetch(`http://localhost:5000/api/applications/${appId}/status`, {
+      const res = await fetch(`https://full-stack-app-gpqb.onrender.com/api/applications/${appId}/status`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status }),
@@ -223,7 +223,7 @@ export default function AdminDashboard() {
     if (!window.confirm('Are you sure you want to delete this application?')) return;
 
     try {
-      const res = await fetch(`http://localhost:5000/api/applications/${appId}`, {
+      const res = await fetch(`https://full-stack-app-gpqb.onrender.com/api/applications/${appId}`, {
         method: 'DELETE',
       });
 
@@ -457,7 +457,7 @@ export default function AdminDashboard() {
 
                         <td className="p-3">
                           {app.documentName ? (
-                            <a href={`http://localhost:5000/uploads/${app.documentName}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center text-[11px] font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-xl transition">
+                            <a href={`https://full-stack-app-gpqb.onrender.com/uploads/${app.documentName}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center text-[11px] font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-xl transition">
                               <span>📄 View</span>
                             </a>
                           ) : (
