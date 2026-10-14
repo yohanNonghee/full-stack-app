@@ -2,67 +2,102 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
-export default function Navbar() {
-  const [isOpen, setIsOpen] = useState(false);
-  const { user, isAuthenticated, logout } = useAuth();
+interface NavbarProps {
+  currentLang?: 'IS' | 'EN';
+  onLanguageChange?: (lang: 'IS' | 'EN') => void;
+}
+
+export default function Navbar({ currentLang = 'EN', onLanguageChange }: NavbarProps) {
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
 
+  const handleLogout = () => {
+    logout();
+    navigate('/');
+  };
+
   return (
-    <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-16 items-center">
+    <nav className="bg-[#F0F4FD] border-b border-gray-200/60 sticky top-0 z-40 transition-all">
+      <div className="max-w-7xl mx-auto px-6 sm:px-8 lg:px-12">
+        <div className="flex justify-between h-20 items-center">
           
-          {/* Logo & Desktop Nav */}
-          <div className="flex items-center space-x-8">
-            <Link to="/" className="flex items-center space-x-2 bg-indigo-600 text-white px-3 py-1.5 rounded-lg font-bold tracking-wide">
-              <span>heimili</span>
+          {/* Brand Logo */}
+          <div className="flex items-center">
+            <Link to="/" className="text-2xl font-black text-gray-900 tracking-tight hover:opacity-80 transition">
+              LEIGUHUS
             </Link>
-            <nav className="hidden md:flex space-x-6 text-sm font-medium text-gray-600">
-              <Link to="/" className="hover:text-indigo-600 transition">Rentals</Link>
-              <Link to="/about" className="hover:text-indigo-600 transition">About</Link>
-              <Link to="/contact" className="hover:text-indigo-600 transition">Contact</Link>
-            </nav>
           </div>
 
-          {/* Desktop Right Actions (Login / Sign Up or User Profile) */}
-          <div className="hidden md:flex items-center space-x-4">
-            {isAuthenticated ? (
-              <div className="flex items-center space-x-3">
-                <span className="text-sm font-medium text-gray-700">Hi, {user?.name || 'User'}</span>
-                {user?.isVerified && (
-                  <span className="bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full font-semibold">Verified</span>
+          {/* Desktop Right Navigation */}
+          <div className="hidden md:flex items-center space-x-6 text-sm">
+            
+            {/* Language Switcher */}
+            <div className="flex items-center space-x-2 text-gray-500 font-medium">
+              <span className="text-base">🌐</span>
+              <button
+                onClick={() => onLanguageChange && onLanguageChange('IS')}
+                className={`transition font-semibold ${
+                  currentLang === 'IS' ? 'text-gray-900 underline underline-offset-4' : 'hover:text-gray-900'
+                }`}
+              >
+                Íslenska
+              </button>
+              <span className="text-gray-300">/</span>
+              <button
+                onClick={() => onLanguageChange && onLanguageChange('EN')}
+                className={`transition font-semibold ${
+                  currentLang === 'EN' ? 'text-gray-900 underline underline-offset-4' : 'hover:text-gray-900'
+                }`}
+              >
+                English
+              </button>
+            </div>
+
+            <div className="h-4 w-[1px] bg-gray-300"></div>
+
+            {/* Auth State */}
+            {user ? (
+              <div className="flex items-center space-x-4">
+                {user.role === 'admin' && (
+                  <Link
+                    to="/admin-dashboard"
+                    className="text-xs bg-purple-100 text-purple-700 px-3 py-1.5 rounded-lg font-bold hover:bg-purple-200 transition"
+                  >
+                    Admin Dashboard
+                  </Link>
                 )}
-                <button 
-                  onClick={logout}
-                  className="text-sm font-medium text-red-600 hover:text-red-800 transition"
+                <span className="text-xs font-semibold text-gray-700">
+                  {user.name || user.email}
+                </span>
+                <button
+                  onClick={handleLogout}
+                  className="text-xs font-semibold text-red-600 hover:text-red-800 transition"
                 >
-                  Log Out
+                  {currentLang === 'IS' ? 'Útskrá' : 'Log Out'}
                 </button>
               </div>
             ) : (
-              <>
-                <Link to="/login" className="text-sm font-medium text-indigo-600 hover:text-indigo-800 transition">
-                  Log In
-                </Link>
-                <Link to="/register" className="bg-indigo-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-indigo-700 shadow-sm transition">
-                  Sign Up
-                </Link>
-              </>
+              <Link
+                to="/login"
+                className="font-semibold text-gray-800 hover:text-indigo-600 transition"
+              >
+                {currentLang === 'IS' ? 'Innskrá' : 'Sign in'}
+              </Link>
             )}
           </div>
 
           {/* Mobile Hamburger Button */}
-          <div className="flex md:hidden items-center">
+          <div className="md:hidden flex items-center">
             <button
-              onClick={() => setIsOpen(!isOpen)}
-              className="text-gray-600 hover:text-gray-900 focus:outline-none p-2"
-              aria-label="Toggle Menu"
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              className="p-2 rounded-xl text-gray-700 hover:bg-gray-200/50 focus:outline-none"
             >
-              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                {isOpen ? (
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                {isMobileMenuOpen ? (
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
                 ) : (
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
                 )}
               </svg>
             </button>
@@ -71,61 +106,50 @@ export default function Navbar() {
         </div>
       </div>
 
-      {/* Mobile Menu Dropdown */}
-      {isOpen && (
-        <div className="md:hidden bg-white border-b border-gray-200 px-4 pt-2 pb-4 space-y-3">
-          <Link 
-            to="/" 
-            onClick={() => setIsOpen(false)}
-            className="block text-gray-700 hover:text-indigo-600 font-medium py-1"
-          >
-            Rentals
-          </Link>
-          <Link 
-            to="/about" 
-            onClick={() => setIsOpen(false)}
-            className="block text-gray-700 hover:text-indigo-600 font-medium py-1"
-          >
-            About
-          </Link>
-          <Link 
-            to="/contact" 
-            onClick={() => setIsOpen(false)}
-            className="block text-gray-700 hover:text-indigo-600 font-medium py-1"
-          >
-            Contact
-          </Link>
-          <hr className="my-2" />
-          {isAuthenticated ? (
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-gray-700">Signed in as {user?.name}</p>
-              <button 
-                onClick={() => { logout(); setIsOpen(false); }}
-                className="w-full text-left text-sm font-medium text-red-600 py-1"
+      {/* Mobile Drawer */}
+      {isMobileMenuOpen && (
+        <div className="md:hidden bg-[#f8f9fc] border-b border-gray-200 px-6 py-4 space-y-4 shadow-lg">
+          <div className="flex items-center space-x-3 text-sm font-semibold text-gray-700">
+            <button
+              onClick={() => onLanguageChange && onLanguageChange('IS')}
+              className={`${currentLang === 'IS' ? 'text-gray-900 underline' : 'text-gray-400'}`}
+            >
+              Íslenska
+            </button>
+            <span>/</span>
+            <button
+              onClick={() => onLanguageChange && onLanguageChange('EN')}
+              className={`${currentLang === 'EN' ? 'text-gray-900 underline' : 'text-gray-400'}`}
+            >
+              English
+            </button>
+          </div>
+
+          <div className="pt-2 border-t border-gray-200">
+            {user ? (
+              <div className="space-y-3">
+                <p className="text-xs text-gray-600 font-medium">{user.name || user.email}</p>
+                {user.role === 'admin' && (
+                  <Link to="/admin-dashboard" onClick={() => setIsMobileMenuOpen(false)} className="block text-xs font-bold text-purple-700">
+                    Admin Dashboard
+                  </Link>
+                )}
+                <button onClick={() => { handleLogout(); setIsMobileMenuOpen(false); }} className="text-xs font-bold text-red-600">
+                  Log Out
+                </button>
+              </div>
+            ) : (
+              <Link
+                to="/login"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="block text-center bg-gray-900 text-white py-2.5 rounded-xl text-xs font-bold"
               >
-                Log Out
-              </button>
-            </div>
-          ) : (
-            <div className="flex flex-col space-y-2 pt-1">
-              <Link 
-                to="/login" 
-                onClick={() => setIsOpen(false)}
-                className="text-center text-sm font-medium text-indigo-600 border border-indigo-600 py-2 rounded-lg"
-              >
-                Log In
+                Sign in
               </Link>
-              <Link 
-                to="/register" 
-                onClick={() => setIsOpen(false)}
-                className="text-center text-sm font-medium text-white bg-indigo-600 py-2 rounded-lg shadow-sm"
-              >
-                Sign Up
-              </Link>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       )}
-    </header>
+    </nav>
   );
 }

@@ -1,35 +1,16 @@
-import { Schema, model, Document } from 'mongoose';
+import mongoose, { Schema } from 'mongoose';
 
-export interface IProperty extends Document {
-  title: string;
-  description: string;
-  rent: number;
-  utilities: number;
-  address: string;
-  neighborhood: string;
-  size: number;
-  bedrooms: number;
-  lat: number;
-  lng: number;
-  images: string[];
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-const PropertySchema = new Schema<IProperty>({
+const PropertySchema = new Schema({
   title: { type: String, required: true, trim: true },
-  description: { type: String, required: true },
-  rent: { type: Number, required: true, min: 0 },
-  utilities: { type: Number, required: true, min: 0 },
-  address: { type: String, required: true },
-  neighborhood: { type: String, required: true },
-  size: { type: Number, required: true, min: 0 },
-  bedrooms: { type: Number, required: true, min: 0 },
-  lat: { type: Number, required: true },
-  lng: { type: Number, required: true },
-  images: [{ type: String }],
-}, { 
-  timestamps: true 
-});
+  rent: { type: Number, required: true, min: 1 },
+  location: { type: String, required: true, trim: true },
+  lat: { type: Number, required: true, min: -90, max: 90 },
+  lng: { type: Number, required: true, min: -180, max: 180 },
+  rooms: { type: Number, required: true, min: 1 },
+  area: { type: Number, required: true, min: 1 },
+  description: { type: String, default: '' },
+  images: { type: [String], default: [] },
+  showOnHome: { type: Boolean, default: true }
+}, { timestamps: true });
 
-export const PropertyModel = model<IProperty>('Property', PropertySchema);
+export const Property = mongoose.model('Property', PropertySchema);

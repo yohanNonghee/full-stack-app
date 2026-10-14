@@ -1,71 +1,113 @@
 import { Router, Request, Response } from 'express';
-import { UserModel } from '../models/User';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
+import { User } from '../models/User';
 
 const router = Router();
+const JWT_SECRET = process.env.JWT_SECRET || 'leiguhus_secret_key';
 
-// Register Route
+// Register User Endpoint
 router.post('/register', async (req: Request, res: Response) => {
   try {
-    const { name, email, password, idNumber, monthlyIncome, isVerified } = req.body;
-    
-    const existingUser = await UserModel.findOne({ email });
-    if (existingUser) {
-      return res.status(400).json({ message: 'Email already exists' });
+    const { name, fullName, email, password, nationalId, monthlyIncome, role } = req.body as {
+      name?: string;
+      fullName?: string;
+      email?: string;
+      password?: string;
+      nationalId?: string;
+      monthlyIncome?: number;
+      role?: string;
+    };
+
+    const userName = fullName || name;
+
+    if (!userName || !email || !password) {
+      return res.status(400).json({ message: 'All required fields must be filled.' });
     }
 
-    const newUser = new UserModel({
-      name,
-      email,
-      password,
-      idNumber,
-      monthlyIncome,
-      isVerified,
-      isAdmin: false
+    const normalizedEmail = email.trim().toLowerCase();
+    const existingUser = await User.findOne({ email: normalizedEmail });
+    if (existingUser) {
+      return res.status(400).json({ message: 'Email address is already registered.' });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const newUser = new User({
+      fullName: userName, 
+      email: normalizedEmail,
+      password: hashedPassword,
+      nationalId: nationalId || '',
+      monthlyIncome: monthlyIncome || 0,
+      role: role || 'renter'
     });
 
-    const savedUser = await newUser.save();
-    
-    const token = 'mock-jwt-token-' + savedUser._id;
+    await newUser.save();
 
-    res.status(201).json({
+    const token = jwt.sign(
+      { id: newUser._id, role: newUser.role },
+      JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    return res.status(201).json({
       token,
       user: {
-        id: savedUser._id,
-        name: savedUser.name,
-        email: savedUser.email,
-        isVerified: savedUser.isVerified,
-        isAdmin: savedUser.isAdmin
+        id: newUser._id.toString(),
+        name: (newUser as any).fullName, 
+        email: newUser.email,
+        role: newUser.role
       }
     });
-  } catch (error) {
-    res.status(500).json({ message: 'Server error during registration', error: (error as Error).message });
+  } catch (err: any) {
+    console.error('REGISTER ERROR:', err);
+    return res.status(500).json({ message: err.message || 'Internal server error.' });
   }
 });
 
-// Login Route
+// Login User Endpoint
 router.post('/login', async (req: Request, res: Response) => {
   try {
-    const { email, password } = req.body;
+    const { email, password } = req.body as { email?: string; password?: string };
 
-    const user = await UserModel.findOne({ email });
-    if (!user || user.password !== password) {
-      return res.status(400).json({ message: 'Invalid email or password' });
+    if (!email || !password) {
+      return res.status(400).json({ message: 'Please provide both email and password.' });
     }
 
-    const token = 'mock-jwt-token-' + user._id;
+    const normalizedEmail = email.trim().toLowerCase();
+    const user = await User.findOne({ email: normalizedEmail });
+    
+    if (!user) {
+      return res.status(400).json({ message: 'Invalid email or password.' });
+    }
 
-    res.json({
+    let isMatch = false;
+    if (user.password.startsWith('$2a$') || user.password.startsWith('$2b$')) {
+      isMatch = await bcrypt.compare(password, user.password);
+    } else {
+      isMatch = password === user.password;
+    }
+
+    if (!isMatch) {
+      return res.status(400).json({ message: 'Invalid email or password.' });
+    }
+
+    const token = jwt.sign(
+      { id: user._id, role: user.role },
+      JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    return res.status(200).json({
       token,
       user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        isVerified: user.isVerified,
-        isAdmin: user.isAdmin
+        id: user._id.toString(),
+        name: (user as any).fullName || (user as any).name, 
+        role: user.role
       }
     });
-  } catch (error) {
-    res.status(500).json({ message: 'Server error during login', error: (error as Error).message });
+  } catch (err: any) {
+    console.error('LOGIN ERROR:', err);
+    return res.status(500).json({ message: err.message || 'Internal server error.' });
   }
 });
 

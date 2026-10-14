@@ -1,23 +1,12 @@
-import { Schema, model, Document } from 'mongoose';
+import { Schema, model } from 'mongoose';
 
-export interface IUser extends Document {
-  name: string;
-  email: string;
-  password: string;
-  idNumber: string;
-  monthlyIncome: number;
-  isVerified: boolean;
-  isAdmin: boolean;
-}
-
-const UserSchema = new Schema<IUser>({
-  name: { type: String, required: true },
+const userSchema = new Schema({
+  fullName: { type: String, required: true },
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
-  idNumber: { type: String, required: true },
+  nationalId: { type: String, required: true },
   monthlyIncome: { type: Number, required: true },
-  isVerified: { type: Boolean, default: true },
-  isAdmin: { type: Boolean, default: false },
+  role: { type: String, enum: ['renter', 'admin'], default: 'renter' }
 }, { timestamps: true });
 
-export const UserModel = model<IUser>('User', UserSchema);
+export const User = model('User', userSchema);

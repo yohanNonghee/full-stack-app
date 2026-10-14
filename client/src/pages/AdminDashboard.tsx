@@ -1,334 +1,494 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
-import 'leaflet/dist/leaflet.css';
+import { Property } from '../types';
+import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
+import L from 'leaflet';
 
-interface Property {
-  _id?: string;
-  title: string;
-  description: string;
-  rent: number;
-  utilities: number;
-  address: string;
-  neighborhood: string;
-  size: number;
-  bedrooms: number;
-  lat: number;
-  lng: number;
-  images: string[];
+import icon from 'leaflet/dist/images/marker-icon.png';
+import iconShadow from 'leaflet/dist/images/marker-shadow.png';
+
+L.Marker.prototype.options.icon = L.icon({
+  iconUrl: icon,
+  shadowUrl: iconShadow,
+  iconAnchor: [12, 41]
+});
+
+interface ApplicationItem {
+  _id: string;
+  applicantName: string;
+  applicantEmail: string;
+  nationalId: string;
+  monthlyIncome: number;
+  documentName: string;
+  status: string;
+  propertyId: {
+    _id: string;
+    title: string;
+    location: string;
+    rent: number;
+  } | string | null;
+  createdAt: string;
 }
 
-// Component Sub-component for capturing click events on the map. Leaflet
-function LocationPicker({ lat, lng, setLatLang }: { lat: number; lng: number; setLatLang: (lat: number, lng: number) => void }) {
+// Component for updating the map center when coordinates change (without resetting MapContainer)
+function MapUpdater({ lat, lng }: { lat: number; lng: number }) {
+  const map = useMap();
+  useEffect(() => {
+    if (!isNaN(lat) && !isNaN(lng)) {
+      map.setView([lat, lng], map.getZoom());
+    }
+  }, [lat, lng, map]);
+  return null;
+}
+
+// Component for handling map coordinate selection clicks.
+function LocationPicker({ setLat, setLng }: { setLat: (v: string) => void; setLng: (v: string) => void }) {
   useMapEvents({
     click(e) {
-      setLatLang(e.latlng.lat, e.latlng.lng);
+      setLat(e.latlng.lat.toFixed(6));
+      setLng(e.latlng.lng.toFixed(6));
     },
   });
-
-  return lat && lng ? <Marker position={[lat, lng]} /> : null;
+  return null;
 }
 
 export default function AdminDashboard() {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
 
   const [properties, setProperties] = useState<Property[]>([]);
+  const [applications, setApplications] = useState<ApplicationItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
+
+  // Property Form states
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [title, setTitle] = useState('');
+  const [rent, setRent] = useState('');
+  const [location, setLocation] = useState('Reykjavík');
+  const [lat, setLat] = useState('64.1466');
+  const [lng, setLng] = useState('-21.9426');
+  const [rooms, setRooms] = useState('1');
+  const [area, setArea] = useState('35');
+  const [description, setDescription] = useState('');
+  const [imageUrl, setImageUrl] = useState('');
+  const [showOnHome, setShowOnHome] = useState(true);
 
-  // Form for adding/editing data
-  const [formData, setFormData] = useState<Property>({
-    title: '',
-    description: '',
-    rent: 0,
-    utilities: 0,
-    address: '',
-    neighborhood: '',
-    size: 0,
-    bedrooms: 0,
-    lat: 64.1466, //  coordinates (Reykjavík)
-    lng: -21.9426,
-    images: ['']
-  });
+  useEffect(() => {
+    if (!user || user.role !== 'admin') {
+      navigate('/admin-login');
+      return;
+    }
+    fetchData();
+  }, [user, navigate]);
 
-  // Load all home listings
-  const fetchProperties = async () => {
+  const fetchData = async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/properties');
-      const data = await res.json();
-      setProperties(data);
+      setLoading(true);
+      setError('');
+      const [propRes, appRes] = await Promise.all([
+        fetch('http://localhost:5000/api/properties'),
+        fetch('http://localhost:5000/api/applications')
+      ]);
+
+      if (propRes.ok) setProperties(await propRes.json());
+      if (appRes.ok) {
+        const appData = await appRes.json();
+        if (Array.isArray(appData)) setApplications(appData);
+      }
     } catch (err) {
-      console.error('Failed to fetch properties', err);
+      console.error('Failed to load dashboard data:', err);
+      setError('Failed to load server data.');
+    } finally {
+      setLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchProperties();
-  }, []);
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: ['rent', 'utilities', 'size', 'bedrooms', 'lat', 'lng'].includes(name) ? Number(value) : value
-    }));
+  const handleResetForm = () => {
+    setEditingId(null);
+    setTitle('');
+    setRent('');
+    setLocation('Reykjavík');
+    setLat('64.1466');
+    setLng('-21.9426');
+    setRooms('1');
+    setArea('35');
+    setDescription('');
+    setImageUrl('');
+    setShowOnHome(true);
   };
 
-  const handleImageChange = (value: string) => {
-    setFormData(prev => ({ ...prev, images: [value] }));
+  const handleEditClick = (prop: Property) => {
+    const propId = prop._id || prop.id || '';
+    setEditingId(propId);
+    
+    setTitle(prop.title || '');
+    setRent(prop.rent !== undefined ? String(prop.rent) : '');
+    setLocation(prop.location || 'Reykjavík');
+    setLat(prop.lat !== undefined ? String(prop.lat) : '64.1466');
+    setLng(prop.lng !== undefined ? String(prop.lng) : '-21.9426');
+    setRooms(prop.rooms !== undefined ? String(prop.rooms) : '1');
+    setArea(prop.area !== undefined ? String(prop.area) : '35');
+    setDescription(prop.description || '');
+    setImageUrl(prop.images?.[0] || '');
+    setShowOnHome(prop.showOnHome !== false);
   };
 
-  // Function to update coordinates upon clicking the map.
-  const setLatLang = (lat: number, lng: number) => {
-    setFormData(prev => ({
-      ...prev,
-      lat: Number(lat.toFixed(6)),
-      lng: Number(lng.toFixed(6))
-    }));
-  };
-
-  // Save data (distinguishing between new creation and editing)
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmitProperty = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError('');
+    setSuccessMessage('');
+
+    const payload = {
+      title,
+      rent: Number(rent),
+      location,
+      lat: Number(lat),
+      lng: Number(lng),
+      rooms: Number(rooms),
+      area: Number(area),
+      description,
+      images: imageUrl ? [imageUrl] : [],
+      showOnHome
+    };
+
     try {
       const url = editingId
         ? `http://localhost:5000/api/properties/${editingId}`
         : 'http://localhost:5000/api/properties';
 
-      const method = editingId ? 'PUT' : 'POST';
-
       const res = await fetch(url, {
-        method,
+        method: editingId ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(payload)
       });
 
       if (res.ok) {
-        alert(editingId ? 'Property updated successfully!' : 'Property created successfully!');
-        resetForm();
-        fetchProperties();
+        setSuccessMessage(editingId ? 'Property updated successfully!' : 'Property added successfully!');
+        handleResetForm();
+        fetchData();
       } else {
-        alert('Failed to save property');
+        const data = await res.json();
+        setError(data.message || 'Operation failed');
       }
     } catch (err) {
       console.error(err);
-      alert('An error occurred.');
+      setError('An error occurred while saving property.');
     }
   };
 
-  // Load data into the form for editing.
-  const handleEdit = (property: Property) => {
-    setEditingId(property._id || null);
-    setFormData({
-      title: property.title,
-      description: property.description,
-      rent: property.rent,
-      utilities: property.utilities,
-      address: property.address,
-      neighborhood: property.neighborhood,
-      size: property.size,
-      bedrooms: property.bedrooms,
-      lat: property.lat,
-      lng: property.lng,
-      images: property.images || ['']
-    });
-  };
-
-  // Delete rental property information
-  const handleDelete = async (id?: string) => {
-    if (!id) return;
-    if (!confirm('Are you sure you want to delete this property?')) return;
+  const handleDeleteProperty = async (propId?: string) => {
+    if (!propId) return;
+    if (!window.confirm('Are you sure you want to delete this property?')) return;
 
     try {
-      const res = await fetch(`http://localhost:5000/api/properties/${id}`, {
-        method: 'DELETE'
-      });
-
+      const res = await fetch(`http://localhost:5000/api/properties/${propId}`, { method: 'DELETE' });
       if (res.ok) {
-        alert('Property deleted successfully!');
-        fetchProperties();
-        if (editingId === id) resetForm();
+        setSuccessMessage('Property deleted successfully!');
+        fetchData();
       } else {
-        alert('Failed to delete property');
+        setError('Failed to delete property.');
       }
     } catch (err) {
       console.error(err);
+      setError('An error occurred while deleting property.');
     }
   };
 
-  const resetForm = () => {
-    setEditingId(null);
-    setFormData({
-      title: '',
-      description: '',
-      rent: 0,
-      utilities: 0,
-      address: '',
-      neighborhood: '',
-      size: 0,
-      bedrooms: 0,
-      lat: 64.1466,
-      lng: -21.9426,
-      images: ['']
-    });
+  const handleUpdateApplicationStatus = async (appId: string, status: string) => {
+    try {
+      const res = await fetch(`http://localhost:5000/api/applications/${appId}/status`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+      });
+
+      if (res.ok) {
+        setSuccessMessage(`Application status updated to ${status}`);
+        fetchData();
+      } else {
+        const data = await res.json();
+        setError(data.message || 'Failed to update status.');
+      }
+    } catch (err) {
+      console.error(err);
+      setError('An error occurred while updating status.');
+    }
   };
 
+  const handleDeleteApplication = async (appId: string) => {
+    if (!appId) return;
+    if (!window.confirm('Are you sure you want to delete this application?')) return;
+
+    try {
+      const res = await fetch(`http://localhost:5000/api/applications/${appId}`, {
+        method: 'DELETE',
+      });
+
+      if (res.ok) {
+        setSuccessMessage('Application deleted successfully!');
+        fetchData();
+      } else {
+        const data = await res.json();
+        setError(data.message || 'Failed to delete application.');
+      }
+    } catch (err) {
+      console.error('DELETE CATCH ERROR:', err);
+      setError('An error occurred while deleting application.');
+    }
+  };
+
+  const getAppPropertyInfo = (propertyId: ApplicationItem['propertyId']) => {
+    if (propertyId && typeof propertyId === 'object') return propertyId;
+    return properties.find(p => String(p._id || p.id) === String(propertyId));
+  };
+
+  const currentLat = parseFloat(lat) || 64.1466;
+  const currentLng = parseFloat(lng) || -21.9426;
+
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col">
-      {/* Navbar */}
-      <header className="bg-indigo-900 text-white px-6 py-4 flex justify-between items-center shadow-md">
-        <h1 className="text-lg font-bold">Heimili — Admin Dashboard</h1>
-        <div className="flex items-center gap-4">
-          <span className="text-xs bg-indigo-800 px-3 py-1 rounded-full">Admin: {user?.name}</span>
-          <button
-            onClick={() => { logout(); navigate('/admin/login'); }}
-            className="bg-red-600 hover:bg-red-700 text-xs px-3 py-1.5 rounded-lg transition"
-          >
-            Admin Logout
-          </button>
-        </div>
-      </header>
+    <div className="min-h-screen bg-gray-50 flex flex-col font-sans">
+      <main className="max-w-7xl mx-auto px-6 py-10 flex-1 w-full space-y-10">
 
-      <div className="flex-1 p-6 max-w-7xl mx-auto w-full grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {error && <div className="bg-red-50 border border-red-200 text-red-600 text-xs p-4 rounded-xl">{error}</div>}
+        {successMessage && <div className="bg-green-50 border border-green-200 text-green-600 text-xs p-4 rounded-xl">{successMessage}</div>}
 
-        {/* Add/Edit Form*/}
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 lg:col-span-1 h-fit">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-base font-bold text-gray-900">
-              {editingId ? 'Edit Rental Property' : 'Add New Rental Property'}
+        {/* SECTION 1: Properties Management */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          
+          {/* Form */}
+          <div className="lg:col-span-1 bg-white p-6 rounded-2xl shadow-sm border border-gray-200 h-fit space-y-4">
+            <h2 className="text-base font-extrabold text-gray-900">
+              {editingId ? 'Edit Property' : 'Add New Property'}
             </h2>
-            {editingId && (
-              <button onClick={resetForm} className="text-xs text-indigo-600 hover:underline">Cancel Edit</button>
-            )}
-          </div>
 
-          <form onSubmit={handleSubmit} className="space-y-3 text-xs">
-            <div>
-              <label className="block font-semibold text-gray-700 uppercase mb-1">Title</label>
-              <input type="text" name="title" value={formData.title} onChange={handleChange} required className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500" />
-            </div>
-
-            <div>
-              <label className="block font-semibold text-gray-700 uppercase mb-1">Description</label>
-              <textarea name="description" value={formData.description} onChange={handleChange} required rows={3} className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500" />
-            </div>
-
-            <div className="grid grid-cols-2 gap-2">
+            <form onSubmit={handleSubmitProperty} className="space-y-3">
               <div>
-                <label className="block font-semibold text-gray-700 uppercase mb-1">Rent (ISK)</label>
-                <input type="number" name="rent" value={formData.rent} onChange={handleChange} required className="w-full px-3 py-2 border rounded-lg" />
+                <label className="block text-[11px] font-bold text-gray-700 uppercase mb-1">Title</label>
+                <input
+                  type="text"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  required
+                  placeholder="Bright studio"
+                  className="w-full px-3 py-2 border rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                />
               </div>
-              <div>
-                <label className="block font-semibold text-gray-700 uppercase mb-1">Utilities (ISK)</label>
-                <input type="number" name="utilities" value={formData.utilities} onChange={handleChange} required className="w-full px-3 py-2 border rounded-lg" />
-              </div>
-            </div>
 
-            <div>
-              <label className="block font-semibold text-gray-700 uppercase mb-1">Address</label>
-              <input type="text" name="address" value={formData.address} onChange={handleChange} required className="w-full px-3 py-2 border rounded-lg" />
-            </div>
-
-            <div>
-              <label className="block font-semibold text-gray-700 uppercase mb-1">Neighborhood</label>
-              <input type="text" name="neighborhood" value={formData.neighborhood} onChange={handleChange} required className="w-full px-3 py-2 border rounded-lg" />
-            </div>
-
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="block font-semibold text-gray-700 uppercase mb-1">Size (m²)</label>
-                <input type="number" name="size" value={formData.size} onChange={handleChange} required className="w-full px-3 py-2 border rounded-lg" />
-              </div>
-              <div>
-                <label className="block font-semibold text-gray-700 uppercase mb-1">Bedrooms</label>
-                <input type="number" name="bedrooms" value={formData.bedrooms} onChange={handleChange} required className="w-full px-3 py-2 border rounded-lg" />
-              </div>
-            </div>
-
-            {/*Map for selecting a location */}
-            <div>
-              <label className="block font-semibold text-gray-700 uppercase mb-1">
-                Pin Location on Map (Click to select)
-              </label>
-              <div className="h-48 w-full rounded-lg overflow-hidden border mb-2 z-0">
-                <MapContainer
-                  center={[formData.lat, formData.lng]}
-                  zoom={13}
-                  style={{ height: '100%', width: '100%' }}
-                >
-                  <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                  <LocationPicker lat={formData.lat} lng={formData.lng} setLatLang={setLatLang} />
-                </MapContainer>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="block font-semibold text-gray-700 uppercase mb-1">Latitude</label>
-                <input type="number" step="any" name="lat" value={formData.lat} onChange={handleChange} required className="w-full px-3 py-2 border rounded-lg bg-gray-50" />
-              </div>
-              <div>
-                <label className="block font-semibold text-gray-700 uppercase mb-1">Longitude</label>
-                <input type="number" step="any" name="lng" value={formData.lng} onChange={handleChange} required className="w-full px-3 py-2 border rounded-lg bg-gray-50" />
-              </div>
-            </div>
-
-            <div>
-              <label className="block font-semibold text-gray-700 uppercase mb-1">Image URL</label>
-              <input type="text" value={formData.images[0] || ''} onChange={(e) => handleImageChange(e.target.value)} required placeholder="https://..." className="w-full px-3 py-2 border rounded-lg" />
-            </div>
-
-            <button type="submit" className="w-full bg-indigo-600 text-white py-2.5 rounded-xl font-semibold hover:bg-indigo-700 shadow-sm transition mt-3">
-              {editingId ? 'Update Property' : 'Save Property'}
-            </button>
-          </form>
-        </div>
-
-        {/* (Existing Listings) Edit & Delete */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 lg:col-span-2">
-          <h2 className="text-base font-bold text-gray-900 mb-4">Existing Listings ({properties.length})</h2>
-
-          <div className="space-y-3 max-h-[75vh] overflow-y-auto pr-2">
-            {properties.length === 0 ? (
-              <p className="text-xs text-gray-400 italic">No properties found.</p>
-            ) : (
-              properties.map((item) => (
-                <div key={item._id} className="border rounded-xl p-4 flex items-center justify-between gap-4 bg-gray-50 hover:bg-white transition shadow-sm">
-                  <div className="flex items-center gap-4">
-                    {item.images && item.images[0] ? (
-                      <img src={item.images[0]} alt="" className="w-16 h-16 object-cover rounded-lg border" />
-                    ) : (
-                      <div className="w-16 h-16 bg-gray-200 rounded-lg flex items-center justify-center text-xs text-gray-400">No Image</div>
-                    )}
-                    <div>
-                      <h3 className="font-bold text-sm text-gray-900">{item.title}</h3>
-                      <p className="text-xs text-gray-500">{item.neighborhood} · {item.rent.toLocaleString()} ISK/mo</p>
-                      <span className="inline-block mt-1 text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">Active</span>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handleEdit(item)}
-                      className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-medium rounded-lg shadow-sm transition"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => handleDelete(item._id)}
-                      className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-medium rounded-lg shadow-sm transition"
-                    >
-                      Delete
-                    </button>
-                  </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[11px] font-bold text-gray-700 uppercase mb-1">Rent (ISK/mo)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={rent}
+                    onChange={(e) => setRent(e.target.value)}
+                    required
+                    placeholder="150000"
+                    className="w-full px-3 py-2 border rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  />
                 </div>
-              ))
+                <div>
+                  <label className="block text-[11px] font-bold text-gray-700 uppercase mb-1">Location</label>
+                  <input
+                    type="text"
+                    value={location}
+                    onChange={(e) => setLocation(e.target.value)}
+                    required
+                    placeholder="Reykjavík"
+                    className="w-full px-3 py-2 border rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  />
+                </div>
+              </div>
+
+              {/* Map Picker */}
+              <div className="border border-gray-200 p-3 rounded-xl space-y-2 bg-gray-50/50">
+                <div className="flex justify-between items-center">
+                  <label className="block text-[11px] font-bold text-gray-700 uppercase">Pin location</label>
+                  <span className="text-[9px] text-indigo-600 font-bold">Interactive</span>
+                </div>
+                <div className="w-full h-44 rounded-lg overflow-hidden border border-gray-300 relative z-0">
+                  <MapContainer
+                    center={[currentLat, currentLng]}
+                    zoom={13}
+                    style={{ width: '100%', height: '100%' }}
+                  >
+                    <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                    <MapUpdater lat={currentLat} lng={currentLng} />
+                    <LocationPicker setLat={setLat} setLng={setLng} />
+                    <Marker position={[currentLat, currentLng]} />
+                  </MapContainer>
+                </div>
+                <div className="grid grid-cols-2 gap-2 pt-1">
+                  <input type="number" step="any" value={lat} onChange={(e) => setLat(e.target.value)} placeholder="Latitude" required className="px-2.5 py-1.5 border rounded-lg text-xs bg-white" />
+                  <input type="number" step="any" value={lng} onChange={(e) => setLng(e.target.value)} placeholder="Longitude" required className="px-2.5 py-1.5 border rounded-lg text-xs bg-white" />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[11px] font-bold text-gray-700 uppercase mb-1">Rooms</label>
+                  <input type="number" min="1" value={rooms} onChange={(e) => setRooms(e.target.value)} required className="w-full px-3 py-2 border rounded-xl text-xs" />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-gray-700 uppercase mb-1">Area (m²)</label>
+                  <input type="number" min="1" value={area} onChange={(e) => setArea(e.target.value)} required className="w-full px-3 py-2 border rounded-xl text-xs" />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-gray-700 uppercase mb-1">Image URL</label>
+                <input type="url" value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} placeholder="https://..." className="w-full px-3 py-2 border rounded-xl text-xs" />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-gray-700 uppercase mb-1">Description</label>
+                <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} placeholder="Cozy studio..." className="w-full px-3 py-2 border rounded-xl text-xs resize-none" />
+              </div>
+
+              <div className="bg-gray-50 p-3 rounded-xl border border-gray-200 flex items-center justify-between">
+                <span className="text-xs font-bold text-gray-900">Show on Home Page</span>
+                <input type="checkbox" checked={showOnHome} onChange={(e) => setShowOnHome(e.target.checked)} className="w-4 h-4 text-indigo-600 rounded cursor-pointer" />
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                {editingId && (
+                  <button type="button" onClick={handleResetForm} className="w-1/3 bg-gray-200 text-gray-700 py-2.5 rounded-xl text-xs font-bold hover:bg-gray-300">
+                    Cancel
+                  </button>
+                )}
+                <button type="submit" className="flex-1 bg-indigo-600 text-white py-2.5 rounded-xl text-xs font-bold hover:bg-indigo-700 shadow-md">
+                  {editingId ? 'Update Property' : 'Add Property'}
+                </button>
+              </div>
+            </form>
+          </div>
+
+          {/* Property List */}
+          <div className="lg:col-span-2 bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
+            <h2 className="text-base font-extrabold text-gray-900 mb-4">Manage Properties ({properties.length})</h2>
+
+            {loading ? (
+              <div className="text-center py-20 text-xs text-gray-400">Loading properties...</div>
+            ) : properties.length === 0 ? (
+              <div className="text-center py-20 text-xs text-gray-400">No properties found.</div>
+            ) : (
+              <div className="space-y-3 max-h-[700px] overflow-y-auto pr-2">
+                {properties.map((prop) => {
+                  const propId = prop._id || prop.id || '';
+                  return (
+                    <div key={propId} className="flex items-center justify-between p-4 border border-gray-200 rounded-xl hover:border-gray-300 transition">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-14 h-14 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
+                          {prop.images?.[0] ? <img src={prop.images[0]} alt={prop.title} className="w-full h-full object-cover" /> : <div className="w-full h-full bg-gray-200" />}
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h3 className="text-sm font-bold text-gray-900">{prop.title}</h3>
+                            <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${prop.showOnHome !== false ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
+                              {prop.showOnHome !== false ? 'Home & All' : 'All Only'}
+                            </span>
+                          </div>
+                          <p className="text-xs text-gray-500 mt-0.5">{prop.location} • {prop.rent?.toLocaleString()} ISK/mo</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <button onClick={() => handleEditClick(prop)} className="px-3 py-1.5 bg-gray-100 hover:bg-indigo-50 hover:text-indigo-600 text-xs font-bold rounded-lg transition">Edit</button>
+                        <button onClick={() => handleDeleteProperty(propId)} className="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold rounded-lg transition">Delete</button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             )}
           </div>
         </div>
 
-      </div>
+        {/* SECTION 2: Rental Applications Management */}
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
+          <h2 className="text-base font-extrabold text-gray-900 mb-4">📄 Rental Applications ({applications.length})</h2>
+
+          {loading ? (
+            <div className="text-center py-12 text-xs text-gray-400">Loading applications...</div>
+          ) : applications.length === 0 ? (
+            <div className="text-center py-12 text-xs text-gray-400">No rental applications submitted yet.</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-gray-50 border-b text-[11px] uppercase text-gray-500 font-bold">
+                    <th className="p-3">Property</th>
+                    <th className="p-3">Applicant Info</th>
+                    <th className="p-3">ID & Income</th>
+                    <th className="p-3">Document</th>
+                    <th className="p-3">Status</th>
+                    <th className="p-3 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100 text-xs">
+                  {applications.map((app) => {
+                    const prop = getAppPropertyInfo(app.propertyId);
+                    return (
+                      <tr key={app._id} className="hover:bg-gray-50/50 transition">
+                        <td className="p-3">
+                          {prop ? (
+                            <div>
+                              <p className="font-bold text-indigo-600">{prop.title}</p>
+                              <p className="text-[10px] text-gray-500">{prop.location}</p>
+                              <p className="text-[10px] font-semibold text-gray-700 mt-0.5">{prop.rent?.toLocaleString()} ISK/mo</p>
+                            </div>
+                          ) : (
+                            <span className="text-gray-400 italic">Property unavailable</span>
+                          )}
+                        </td>
+
+                        <td className="p-3">
+                          <p className="font-bold text-gray-900">{app.applicantName}</p>
+                          <p className="text-[10px] text-gray-500">{app.applicantEmail}</p>
+                          <p className="text-[10px] text-gray-400 mt-0.5">Date: {new Date(app.createdAt).toLocaleDateString()}</p>
+                        </td>
+
+                        <td className="p-3">
+                          <p className="text-gray-600">ID: <span className="font-mono">{app.nationalId}</span></p>
+                          <p className="text-gray-600 mt-0.5">Income: <span className="font-bold text-green-600">{app.monthlyIncome?.toLocaleString()} ISK</span></p>
+                        </td>
+
+                        <td className="p-3">
+                          {app.documentName ? (
+                            <a href={`http://localhost:5000/uploads/${app.documentName}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center text-[11px] font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-xl transition">
+                              <span>📄 View</span>
+                            </a>
+                          ) : (
+                            <span className="text-gray-400 italic">No document</span>
+                          )}
+                        </td>
+
+                        <td className="p-3">
+                          <span className={`px-2.5 py-1 text-[10px] font-bold rounded-full uppercase ${app.status === 'pending' ? 'bg-yellow-100 text-yellow-700' : app.status === 'approved' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                            {app.status}
+                          </span>
+                        </td>
+
+                        <td className="p-3 text-right space-x-1">
+                          {app.status !== 'pending' && (
+                            <button onClick={() => handleUpdateApplicationStatus(app._id, 'pending')} className="px-2.5 py-1 bg-yellow-50 hover:bg-yellow-100 text-yellow-700 font-bold rounded-lg transition">Pending</button>
+                          )}
+                          <button onClick={() => handleUpdateApplicationStatus(app._id, 'approved')} className="px-2.5 py-1 bg-green-50 hover:bg-green-100 text-green-700 font-bold rounded-lg transition">Approve</button>
+                          <button onClick={() => handleUpdateApplicationStatus(app._id, 'rejected')} className="px-2.5 py-1 bg-red-50 hover:bg-red-100 text-red-700 font-bold rounded-lg transition">Reject</button>
+                          <button onClick={() => handleDeleteApplication(app._id)} className="px-2.5 py-1 bg-gray-100 hover:bg-red-50 text-gray-600 hover:text-red-600 font-bold rounded-lg transition">Delete</button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+      </main>
     </div>
   );
 }
