@@ -41,16 +41,6 @@ cd your-project-name
    1. Environment Variables
 Create a .env file in the root directory of your project and add the following configuration variables:
 
-PORT=5000
-MONGO_URI=mongodb+srv://yohanthema_db_user:0ruC0JUJeV9bFFoM@datayohan.xxgpp5x.mongodb.net/leiguhus?retryWrites=true&w=majority&appName=DataYohan
-
-
-4. Run the Application
-# Development mode
-npm run dev
-
-# Production mode
-npm start
 
 👥 Author
 Team 2
