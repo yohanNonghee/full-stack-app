@@ -31,7 +31,7 @@ router.post('/', async (req: Request, res: Response) => {
 
     let savedDocumentName = '';
     if (documentBase64 && documentName) {
-      const matches = documentBase64.match(/^data:(.+);base64,(.+)$/);
+      const matches = documentBase64.match(/^data:(.+);base64,(.+)$/); //Regular Expression (Reg ex)
       const buffer = Buffer.from(matches ? matches[2] : documentBase64, 'base64');
       
       savedDocumentName = `doc-${Date.now()}-${Math.round(Math.random() * 1e9)}${path.extname(documentName) || '.pdf'}`;

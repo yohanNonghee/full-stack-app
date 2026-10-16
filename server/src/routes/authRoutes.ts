@@ -65,6 +65,8 @@ router.post('/register', async (req: Request, res: Response) => {
 });
 
 // Login User Endpoint
+
+// Receive information and perform an initial verification .
 router.post('/login', async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body as { email?: string; password?: string };
@@ -73,13 +75,14 @@ router.post('/login', async (req: Request, res: Response) => {
       return res.status(400).json({ message: 'Please provide both email and password.' });
     }
 
+    // Search for a user in the database
     const normalizedEmail = email.trim().toLowerCase();
     const user = await User.findOne({ email: normalizedEmail });
-    
+  
     if (!user) {
       return res.status(400).json({ message: 'Invalid email or password.' });
     }
-
+  // Check password
     let isMatch = false;
     if (user.password.startsWith('$2a$') || user.password.startsWith('$2b$')) {
       isMatch = await bcrypt.compare(password, user.password);
@@ -90,7 +93,7 @@ router.post('/login', async (req: Request, res: Response) => {
     if (!isMatch) {
       return res.status(400).json({ message: 'Invalid email or password.' });
     }
-
+// Generate a token and send the data back
     const token = jwt.sign(
       { id: user._id, role: user.role },
       JWT_SECRET,
@@ -105,6 +108,7 @@ router.post('/login', async (req: Request, res: Response) => {
         role: user.role
       }
     });
+    // Handle errors
   } catch (err: any) {
     console.error('LOGIN ERROR:', err);
     return res.status(500).json({ message: err.message || 'Internal server error.' });

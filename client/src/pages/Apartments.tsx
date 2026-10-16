@@ -11,10 +11,10 @@ export default function Apartments() {
   const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
   const [favorites, setFavorites] = useState<{ [key: string]: boolean }>({});
-  
+
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 4; 
+  const itemsPerPage = 4;
 
   // Modals State
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
@@ -22,25 +22,46 @@ export default function Apartments() {
   const [isRequestOpen, setIsRequestOpen] = useState(false);
   const [isLoginPromptOpen, setIsLoginPromptOpen] = useState(false);
 
+  // useEffect(() => {
+  //   fetchApartments();
+  // }, []);
+
+  // const fetchApartments = async () => {
+  //   try {
+  //     setLoading(true);
+  //     const res = await fetch('https://full-stack-app-gpqb.onrender.com/api/properties');
+  //     if (res.ok) {
+  //       const data: Property[] = await res.json();
+  //       setProperties(data);
+  //     }
+  //   } catch (err) {
+  //     console.error('Failed to load apartments:', err);
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
+
+
+
   useEffect(() => {
     fetchApartments();
-  }, []);
-
+  }, []); 
+  
   const fetchApartments = async () => {
     try {
       setLoading(true);
       const res = await fetch('https://full-stack-app-gpqb.onrender.com/api/properties');
       if (res.ok) {
         const data: Property[] = await res.json();
-    
         setProperties(data);
       }
     } catch (err) {
-      console.error('Failed to load apartments:', err);
+      console.error('Failed to load apartments:' , err)
     } finally {
       setLoading(false);
     }
   };
+
 
   const toggleFavorite = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -71,7 +92,7 @@ export default function Apartments() {
   return (
     <div className="min-h-screen bg-white flex flex-col font-sans">
       <main className="max-w-6xl mx-auto px-6 sm:px-8 py-10 flex-1 w-full">
-        
+
         {/* Header Title & Subtitle */}
         <div className="mb-8 space-y-1">
           <h1 className="text-3xl sm:text-4xl font-black text-gray-900 tracking-tight">
@@ -140,7 +161,7 @@ export default function Apartments() {
                   {/* Info Container */}
                   <div className="p-6 border-t border-gray-300 space-y-2">
                     <h3 className="text-xl font-bold text-gray-900">{prop.title}</h3>
-                    
+
                     <div className="flex items-center gap-1 text-gray-500 text-sm font-medium">
                       <span>📍</span>
                       <span>{prop.location || 'Reykjavík'}</span>
@@ -189,11 +210,10 @@ export default function Apartments() {
                 <button
                   key={pageNum}
                   onClick={() => setCurrentPage(pageNum)}
-                  className={`w-10 h-10 border rounded-lg text-sm font-bold transition ${
-                    currentPage === pageNum
-                      ? 'bg-[#1e40af] text-white border-[#1e40af]'
-                      : 'border-gray-300 text-gray-800 hover:bg-gray-100'
-                  }`}
+                  className={`w-10 h-10 border rounded-lg text-sm font-bold transition ${currentPage === pageNum
+                    ? 'bg-[#1e40af] text-white border-[#1e40af]'
+                    : 'border-gray-300 text-gray-800 hover:bg-gray-100'
+                    }`}
                 >
                   {pageNum}
                 </button>
